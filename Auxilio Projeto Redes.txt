@@ -4,8 +4,9 @@ Configuração Switch A1
 
 enable
 configure terminal
+hostname A1
 
-! 1. Criar VLANs da infraestrutura
+! 1. Criar VLANs
 vlan 10
  name Guest
 vlan 20
@@ -16,59 +17,86 @@ vlan 99
  name Management
 exit
 
-! 2. Configurar Spanning-Tree (Rapid-PVST) e proteções globais
+! 2. Spanning-Tree Rapid-PVST+ e proteções globais
 spanning-tree mode rapid-pvst
 spanning-tree portfast default
 spanning-tree portfast bpduguard default
 
-! 3. Agregação EtherChannel LACP para CD1 (Port-Channel 1) e CD2 (Port-Channel 2)
+! 3. Agregação EtherChannel LACP para CD1 (Po1) e CD2 (Po2)
 interface range GigabitEthernet0/0 - 1
  channel-group 1 mode active
+ no shutdown
 
 interface range GigabitEthernet0/2 - 3
  channel-group 2 mode active
+ no shutdown
 exit
 
-interface Port-channel1
+interface range Port-channel1 - 2
  switchport trunk encapsulation dot1q
  switchport mode trunk
  switchport nonegotiate
-
-interface Port-channel2
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport nonegotiate
+ no shutdown
 exit
 
-! 4. Configurar Portas de Acesso dos Clientes (VLAN 10 para PC1 e PC4)
+! 4. Portas de Acesso dos Clientes (PC1 e PC4 na VLAN 10)
 interface range GigabitEthernet1/0 - 1
  switchport mode access
  switchport access vlan 10
  switchport nonegotiate
  spanning-tree portfast
  spanning-tree bpduguard enable
+ no shutdown
 exit
 
-! 5. Contramedidas de Segurança (DHCP Snooping contra Yersinia)
+! 5. Segurança L2: DHCP Snooping, DAI e IP Source Guard (Objetivo 7)
 ip dhcp snooping
 ip dhcp snooping vlan 10,20,30,99
+no ip dhcp snooping information option
+ip arp inspection vlan 10,20,30,99
 
-! Confiar apenas nos Uplinks para CD1/CD2
-interface range Port-channel1 , Port-channel2
+interface range Port-channel1 - 2
  ip dhcp snooping trust
-
-! Limitar taxa de pacotes DHCP nas portas dos utilizadores
-interface range GigabitEthernet1/0 - 1
- ip dhcp snooping limit rate 15
+ ip arp inspection trust
 exit
 
-wr
+interface range GigabitEthernet1/0 - 1
+ ip dhcp snooping limit rate 15
+ ip arp inspection limit rate 15
+ ip verify source
+exit
+
+! 6. Endereçamento de Gestão (VLAN 99) e Isolamento SSH/Telnet (Objetivo 5)
+interface Vlan99
+ ip address 10.50.0.228 255.255.255.240
+ no shutdown
+exit
+
+ip default-gateway 10.50.0.225
+
+ip domain-name org.local
+crypto key generate rsa general-keys modulus 1024
+username admin privilege 15 secret cisco123
+enable secret cisco123
+
+access-list 99 permit 10.50.0.224 0.0.0.15
+access-list 99 deny any log
+
+line vty 0 4
+ access-class 99 in
+ login local
+ transport input ssh telnet
+exit
+
+end
+write memory (wr)
 
 
 Configuração do Switch A2
 
 enable
 configure terminal
+hostname A2
 
 ! 1. Criar VLANs
 vlan 10
@@ -81,58 +109,85 @@ vlan 99
  name Management
 exit
 
-! 2. Activar Spanning-Tree Rapid-PVST e proteções
+! 2. Spanning-Tree Rapid-PVST+ e proteções globais
 spanning-tree mode rapid-pvst
 spanning-tree portfast default
 spanning-tree portfast bpduguard default
 
-! 3. Configurar Uplinks LACP para CD1 e CD2
+! 3. Agregação EtherChannel LACP para CD1 (Po1) e CD2 (Po2)
 interface range GigabitEthernet0/0 - 1
  channel-group 1 mode active
+ no shutdown
 
 interface range GigabitEthernet0/2 - 3
  channel-group 2 mode active
+ no shutdown
 exit
 
-interface Port-channel1
+interface range Port-channel1 - 2
  switchport trunk encapsulation dot1q
  switchport mode trunk
  switchport nonegotiate
-
-interface Port-channel2
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport nonegotiate
+ no shutdown
 exit
 
-! 4. Configurar Portas de Acesso (PC2 e PC5 na VLAN 20)
+! 4. Portas de Acesso dos Clientes (PC2 e PC5 na VLAN 20)
 interface range GigabitEthernet1/0 - 1
  switchport mode access
  switchport access vlan 20
  switchport nonegotiate
  spanning-tree portfast
  spanning-tree bpduguard enable
+ no shutdown
 exit
 
-! 5. Configurar DHCP Snooping (Segurança Yersinia)
+! 5. Segurança L2: DHCP Snooping, DAI e IP Source Guard (Objetivo 7)
 ip dhcp snooping
 ip dhcp snooping vlan 10,20,30,99
+no ip dhcp snooping information option
+ip arp inspection vlan 10,20,30,99
 
-interface range Port-channel1 , Port-channel2
+interface range Port-channel1 - 2
  ip dhcp snooping trust
+ ip arp inspection trust
+exit
 
 interface range GigabitEthernet1/0 - 1
  ip dhcp snooping limit rate 15
+ ip arp inspection limit rate 15
+ ip verify source
 exit
 
-! 6. Guardar permanentemente na NVRAM
+! 6. Endereçamento de Gestão (VLAN 99) e Isolamento SSH/Telnet (Objetivo 5)
+interface Vlan99
+ ip address 10.50.0.229 255.255.255.240
+ no shutdown
+exit
+
+ip default-gateway 10.50.0.225
+
+ip domain-name org.local
+crypto key generate rsa general-keys modulus 1024
+username admin privilege 15 secret cisco123
+enable secret cisco123
+
+access-list 99 permit 10.50.0.224 0.0.0.15
+access-list 99 deny any log
+
+line vty 0 4
+ access-class 99 in
+ login local
+ transport input ssh telnet
+exit
+
 end
-write memory ( Ou WR)
+write memory (wr)
 
 Configuração do A3
 
 enable
 configure terminal
+hostname A3
 
 ! 1. Criar VLANs
 vlan 10
@@ -145,73 +200,103 @@ vlan 99
  name Management
 exit
 
-! 2. Activar Spanning-Tree Rapid-PVST e proteções
+! 2. Spanning-Tree Rapid-PVST+ e proteções globais
 spanning-tree mode rapid-pvst
 spanning-tree portfast default
 spanning-tree portfast bpduguard default
 
-! 3. Configurar Uplinks LACP para CD1 e CD2
+! 3. Agregação EtherChannel LACP para CD1 (Po1) e CD2 (Po2)
 interface range GigabitEthernet0/0 - 1
  channel-group 1 mode active
+ no shutdown
 
 interface range GigabitEthernet0/2 - 3
  channel-group 2 mode active
+ no shutdown
 exit
 
-interface Port-channel1
+interface range Port-channel1 - 2
  switchport trunk encapsulation dot1q
  switchport mode trunk
  switchport nonegotiate
-
-interface Port-channel2
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport nonegotiate
+ no shutdown
 exit
 
-! 4. Configurar Porta Gi1/0 para PC3 (VLAN 30)
+! 4. Porta Gi1/0 para PC3 (VLAN 30)
 interface GigabitEthernet1/0
  switchport mode access
  switchport access vlan 30
  switchport nonegotiate
  spanning-tree portfast
  spanning-tree bpduguard enable
+ no shutdown
 exit
 
-! 5. Configurar Porta Gi1/1 para Management PC (VLAN 99)
+! 5. Porta Gi1/1 para Management PC (VLAN 99)
+! (Configurada como Trunk com Native VLAN 99 para cumprir o rótulo "Trunk" do diagrama
+! e funcionar simultaneamente com tramas sem tag vindas de eth0 do Management PC)
 interface GigabitEthernet1/1
- switchport mode access
- switchport access vlan 99
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk native vlan 99
  switchport nonegotiate
- spanning-tree portfast
+ spanning-tree portfast trunk
  spanning-tree bpduguard enable
+ no shutdown
 exit
 
-! 6. Configurar DHCP Snooping (Segurança Yersinia)
+! 6. Segurança L2: DHCP Snooping, DAI e IP Source Guard (Objetivo 7)
 ip dhcp snooping
 ip dhcp snooping vlan 10,20,30,99
+no ip dhcp snooping information option
+ip arp inspection vlan 10,20,30,99
 
-interface range Port-channel1 , Port-channel2
+interface range Port-channel1 - 2
  ip dhcp snooping trust
+ ip arp inspection trust
+exit
 
 interface range GigabitEthernet1/0 - 1
  ip dhcp snooping limit rate 15
+ ip arp inspection limit rate 15
+ ip verify source
 exit
 
-! 7. Guardar permanentemente na NVRAM
+! 7. Endereçamento de Gestão (VLAN 99) e Isolamento SSH/Telnet (Objetivo 5)
+interface Vlan99
+ ip address 10.50.0.230 255.255.255.240
+ no shutdown
+exit
+
+ip default-gateway 10.50.0.225
+
+ip domain-name org.local
+crypto key generate rsa general-keys modulus 1024
+username admin privilege 15 secret cisco123
+enable secret cisco123
+
+access-list 99 permit 10.50.0.224 0.0.0.15
+access-list 99 deny any log
+
+line vty 0 4
+ access-class 99 in
+ login local
+ transport input ssh telnet
+exit
+
 end
 write memory (wr)
-
 
 Configuração do CD1
 
 enable
 configure terminal
+hostname CD1
 
-! 1. Activar o Roteamento IP (L3)
+! 1. Ativar Roteamento L3
 ip routing
 
-! 2. Criar a estrutura de VLANs
+! 2. Criar VLANs
 vlan 10
  name Guest
 vlan 20
@@ -222,36 +307,112 @@ vlan 99
  name Management
 exit
 
-! 3. Prioridades Spanning-Tree (Root Primary nas VLANs 10 e 30)
+! 3. Spanning-Tree: Primary Root (VLAN 10, 30) e Secondary Root (VLAN 20, 99)
 spanning-tree mode rapid-pvst
 spanning-tree vlan 10,30 priority 4096
 spanning-tree vlan 20,99 priority 8192
 
-! 4. Configurar Interfaces L3 Ponto-a-Ponto Roteadas
+! 4. Object Tracking para o link L3 com o EdgeRouter (Objetivo 2)
+track 1 interface GigabitEthernet0/0 line-protocol
+exit
+
+! 5. Ligações L3 Roteadas (EdgeRouter e L3 EtherChannel com CD2)
 interface GigabitEthernet0/0
  description Link_CD1_EdgeRouter
  no switchport
  ip address 10.50.15.1 255.255.255.252
  no shutdown
+exit
 
-interface GigabitEthernet0/2
- description Link_Inter_CD1_CD2
+interface range GigabitEthernet0/1 - 2
+ description Link_Fisico_Inter_CD1_CD2
+ no switchport
+ channel-group 12 mode active
+ no shutdown
+exit
+
+interface Port-channel12
+ description Link_L3_Inter_CD1_CD2
  no switchport
  ip address 10.50.15.9 255.255.255.252
  no shutdown
+exit
 
-! 5. Interfaces SVIs com VRRP e DHCP Relay (ip helper-address)
+! 6. Porta Trunk para o Servidor Debian (ens4)
+interface GigabitEthernet0/3
+ description Trunk_Server_ens4
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+ no shutdown
+exit
+
+! 7. Uplinks EtherChannel LACP para A1 (Po1), A2 (Po2) e A3 (Po3)
+interface range GigabitEthernet1/0 - 1
+ channel-group 1 mode active
+ no shutdown
+
+interface range GigabitEthernet2/0 - 1
+ channel-group 2 mode active
+ no shutdown
+
+interface range GigabitEthernet3/0 - 1
+ channel-group 3 mode active
+ no shutdown
+exit
+
+interface range Port-channel1 - 3
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+ no shutdown
+exit
+
+! 8. Políticas de Filtragem L3/L4 - ACLs (Objetivo 5)
+! ACL 1: Restrição da VLAN Guest (VLAN 10)
+! Permite DHCP, DNS (para o Server e Internet), bloqueia redes internas, permite HTTP/HTTPS externo
+ip access-list extended ACL_VLAN10_IN
+ permit udp any eq bootpc any eq bootps
+ permit udp 10.50.0.128 0.0.0.63 host 10.50.0.222 eq domain
+ permit tcp 10.50.0.128 0.0.0.63 host 10.50.0.222 eq domain
+ deny   ip 10.50.0.128 0.0.0.63 10.50.0.0 0.0.15.255 log
+ permit udp 10.50.0.128 0.0.0.63 any eq domain
+ permit tcp 10.50.0.128 0.0.0.63 any eq www
+ permit tcp 10.50.0.128 0.0.0.63 any eq 443
+ permit icmp 10.50.0.128 0.0.0.63 any echo
+ permit icmp 10.50.0.128 0.0.0.63 any echo-reply
+ deny   ip any any log
+exit
+
+! ACL 2: Proteção do Servidor (VLAN 30) a partir da VLAN Student (VLAN 20)
+! Permite Web (80/443), DNS (53), DHCP e ICMP ao Server (10.50.0.222), bloqueia SSH (22)
+ip access-list extended ACL_VLAN20_IN
+ permit udp any eq bootpc any eq bootps
+ deny   tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq 22 log
+ permit tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq www
+ permit tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq 443
+ permit udp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq domain
+ permit tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq domain
+ permit icmp 10.50.0.0 0.0.0.127 host 10.50.0.222
+ deny   ip 10.50.0.0 0.0.0.127 10.50.0.224 0.0.0.15 log
+ permit ip 10.50.0.0 0.0.0.127 any
+exit
+
+! 9. Interfaces SVIs com VRRP, Tracking, DHCP Relay e aplicação das ACLs
 interface Vlan10
  ip address 10.50.0.130 255.255.255.192
- ip helper-address 10.50.0.250
+ ip helper-address 10.50.0.222
+ ip access-group ACL_VLAN10_IN in
  vrrp 10 ip 10.50.0.129
  vrrp 10 priority 110
+ vrrp 10 track 1 decrement 20
  vrrp 10 authentication text SecretKEY
  no shutdown
 
 interface Vlan20
  ip address 10.50.0.2 255.255.255.128
- ip helper-address 10.50.0.250
+ ip helper-address 10.50.0.222
+ ip access-group ACL_VLAN20_IN in
  vrrp 20 ip 10.50.0.1
  vrrp 20 priority 100
  vrrp 20 authentication text SecretKEY
@@ -259,23 +420,25 @@ interface Vlan20
 
 interface Vlan30
  ip address 10.50.0.194 255.255.255.224
- ip helper-address 10.50.0.250
  vrrp 30 ip 10.50.0.193
  vrrp 30 priority 110
+ vrrp 30 track 1 decrement 20
  vrrp 30 authentication text SecretKEY
  no shutdown
 
 interface Vlan99
  ip address 10.50.0.226 255.255.255.240
- ip helper-address 10.50.0.250
+ ip helper-address 10.50.0.222
  vrrp 99 ip 10.50.0.225
  vrrp 99 priority 100
  vrrp 99 authentication text SecretKEY
  no shutdown
+exit
 
-! 6. Interface Loopback e Roteamento OSPFv2 (Área 0)
+! 10. Loopback0 e OSPFv2 (Objetivo 3)
 interface Loopback0
  ip address 1.1.1.1 255.255.255.255
+exit
 
 router ospf 1
  router-id 1.1.1.1
@@ -283,25 +446,40 @@ router ospf 1
  passive-interface Vlan20
  passive-interface Vlan30
  passive-interface Vlan99
+ passive-interface Loopback0
  network 10.50.15.0 0.0.0.3 area 0
  network 10.50.15.8 0.0.0.3 area 0
  network 10.50.0.0 0.0.15.255 area 0
 exit
 
-! 7. Guardar na memória NVRAM
-end
-write memory ( ou wr) 
+! 11. Isolamento de Gestão SSH/Telnet exclusivo para a VLAN 99 (Objetivo 5.1)
+ip domain-name org.local
+crypto key generate rsa general-keys modulus 1024
+username admin privilege 15 secret cisco123
+enable secret cisco123
 
+access-list 99 permit 10.50.0.224 0.0.0.15
+access-list 99 deny any log
+
+line vty 0 4
+ access-class 99 in
+ login local
+ transport input ssh telnet
+exit
+
+end
+write memory (wr)
 
 Configurar o CD2
 
 enable
 configure terminal
+hostname CD2
 
-! 1. Activar o Roteamento IP (L3)
+! 1. Ativar Roteamento L3
 ip routing
 
-! 2. Criar a estrutura de VLANs
+! 2. Criar VLANs
 vlan 10
  name Guest
 vlan 20
@@ -312,28 +490,98 @@ vlan 99
  name Management
 exit
 
-! 3. Prioridades Spanning-Tree (Root Primary nas VLANs 20 e 99)
+! 3. Spanning-Tree: Primary Root (VLAN 20, 99) e Secondary Root (VLAN 10, 30)
 spanning-tree mode rapid-pvst
 spanning-tree vlan 20,99 priority 4096
 spanning-tree vlan 10,30 priority 8192
 
-! 4. Configurar Interfaces L3 Ponto-a-Ponto Roteadas
+! 4. Object Tracking para o link L3 com o EdgeRouter (Objetivo 2)
+track 1 interface GigabitEthernet0/0 line-protocol
+exit
+
+! 5. Ligações L3 Roteadas (EdgeRouter e L3 EtherChannel com CD1)
 interface GigabitEthernet0/0
  description Link_CD2_EdgeRouter
  no switchport
  ip address 10.50.15.5 255.255.255.252
  no shutdown
+exit
 
-interface GigabitEthernet0/2
- description Link_Inter_CD2_CD1
+interface range GigabitEthernet0/1 - 2
+ description Link_Fisico_Inter_CD2_CD1
+ no switchport
+ channel-group 12 mode active
+ no shutdown
+exit
+
+interface Port-channel12
+ description Link_L3_Inter_CD2_CD1
  no switchport
  ip address 10.50.15.10 255.255.255.252
  no shutdown
+exit
 
-! 5. Interfaces SVIs com VRRP e DHCP Relay (ip helper-address)
+! 6. Porta Trunk para o Servidor Debian (ens5)
+interface GigabitEthernet0/3
+ description Trunk_Server_ens5
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+ no shutdown
+exit
+
+! 7. Uplinks EtherChannel LACP para A1 (Po1), A2 (Po2) e A3 (Po3)
+interface range GigabitEthernet1/0 - 1
+ channel-group 1 mode active
+ no shutdown
+
+interface range GigabitEthernet2/0 - 1
+ channel-group 2 mode active
+ no shutdown
+
+interface range GigabitEthernet3/0 - 1
+ channel-group 3 mode active
+ no shutdown
+exit
+
+interface range Port-channel1 - 3
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport nonegotiate
+ no shutdown
+exit
+
+! 8. Políticas de Filtragem L3/L4 - ACLs (Objetivo 5)
+ip access-list extended ACL_VLAN10_IN
+ permit udp any eq bootpc any eq bootps
+ permit udp 10.50.0.128 0.0.0.63 host 10.50.0.222 eq domain
+ permit tcp 10.50.0.128 0.0.0.63 host 10.50.0.222 eq domain
+ deny   ip 10.50.0.128 0.0.0.63 10.50.0.0 0.0.15.255 log
+ permit udp 10.50.0.128 0.0.0.63 any eq domain
+ permit tcp 10.50.0.128 0.0.0.63 any eq www
+ permit tcp 10.50.0.128 0.0.0.63 any eq 443
+ permit icmp 10.50.0.128 0.0.0.63 any echo
+ permit icmp 10.50.0.128 0.0.0.63 any echo-reply
+ deny   ip any any log
+exit
+
+ip access-list extended ACL_VLAN20_IN
+ permit udp any eq bootpc any eq bootps
+ deny   tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq 22 log
+ permit tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq www
+ permit tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq 443
+ permit udp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq domain
+ permit tcp 10.50.0.0 0.0.0.127 host 10.50.0.222 eq domain
+ permit icmp 10.50.0.0 0.0.0.127 host 10.50.0.222
+ deny   ip 10.50.0.0 0.0.0.127 10.50.0.224 0.0.0.15 log
+ permit ip 10.50.0.0 0.0.0.127 any
+exit
+
+! 9. Interfaces SVIs com VRRP, Tracking, DHCP Relay e aplicação das ACLs
 interface Vlan10
  ip address 10.50.0.131 255.255.255.192
- ip helper-address 10.50.0.250
+ ip helper-address 10.50.0.222
+ ip access-group ACL_VLAN10_IN in
  vrrp 10 ip 10.50.0.129
  vrrp 10 priority 100
  vrrp 10 authentication text SecretKEY
@@ -341,15 +589,16 @@ interface Vlan10
 
 interface Vlan20
  ip address 10.50.0.3 255.255.255.128
- ip helper-address 10.50.0.250
+ ip helper-address 10.50.0.222
+ ip access-group ACL_VLAN20_IN in
  vrrp 20 ip 10.50.0.1
  vrrp 20 priority 110
+ vrrp 20 track 1 decrement 20
  vrrp 20 authentication text SecretKEY
  no shutdown
 
 interface Vlan30
  ip address 10.50.0.195 255.255.255.224
- ip helper-address 10.50.0.250
  vrrp 30 ip 10.50.0.193
  vrrp 30 priority 100
  vrrp 30 authentication text SecretKEY
@@ -357,15 +606,18 @@ interface Vlan30
 
 interface Vlan99
  ip address 10.50.0.227 255.255.255.240
- ip helper-address 10.50.0.250
+ ip helper-address 10.50.0.222
  vrrp 99 ip 10.50.0.225
  vrrp 99 priority 110
+ vrrp 99 track 1 decrement 20
  vrrp 99 authentication text SecretKEY
  no shutdown
+exit
 
-! 6. Interface Loopback e Roteamento OSPFv2 (Área 0)
+! 10. Loopback0 e OSPFv2 (Objetivo 3)
 interface Loopback0
  ip address 2.2.2.2 255.255.255.255
+exit
 
 router ospf 1
  router-id 2.2.2.2
@@ -373,12 +625,27 @@ router ospf 1
  passive-interface Vlan20
  passive-interface Vlan30
  passive-interface Vlan99
+ passive-interface Loopback0
  network 10.50.15.4 0.0.0.3 area 0
  network 10.50.15.8 0.0.0.3 area 0
  network 10.50.0.0 0.0.15.255 area 0
 exit
 
-! 7. Guardar na memória NVRAM
+! 11. Isolamento de Gestão SSH/Telnet exclusivo para a VLAN 99 (Objetivo 5.1)
+ip domain-name org.local
+crypto key generate rsa general-keys modulus 1024
+username admin privilege 15 secret cisco123
+enable secret cisco123
+
+access-list 99 permit 10.50.0.224 0.0.0.15
+access-list 99 deny any log
+
+line vty 0 4
+ access-class 99 in
+ login local
+ transport input ssh telnet
+exit
+
 end
 write memory (wr)
 
@@ -386,64 +653,69 @@ Configuração do Edge Router
 
 enable
 configure terminal
+hostname EdgeRouter
 
-! 1. Configurar Interface Loopback (Router ID)
+! 1. Interface Loopback0 (Router ID)
 interface Loopback0
  ip address 3.3.3.3 255.255.255.255
  no shutdown
+exit
 
-! 2. Configurar Interface L3 para o Switch CD1
+! 2. Interface L3 para o Switch CD1
 interface GigabitEthernet0/0
  description Link_Ponto_a_Ponto_CD1
  ip address 10.50.15.2 255.255.255.252
  ip nat inside
  no shutdown
+exit
 
-! 3. Configurar Interface L3 para o Switch CD2
+! 3. Interface L3 para o Switch CD2
 interface GigabitEthernet0/1
  description Link_Ponto_a_Ponto_CD2
  ip address 10.50.15.6 255.255.255.252
  ip nat inside
  no shutdown
+exit
 
-! 4. Configurar Interface WAN (Ligação à Nuvem Internet nat0)
+! 4. Interface WAN (Ligação à Nuvem Internet)
 interface GigabitEthernet0/2
  description Saida_WAN_Internet
  ip address dhcp
  ip nat outside
  no shutdown
+exit
 
-! 5. Roteamento Dinâmico OSPFv2 (Área 0) & Injeção da Rota por Defeito
+! 5. Roteamento Dinâmico OSPFv2 (Área 0) e Rota Por Defeito (Objetivo 3)
 router ospf 1
  router-id 3.3.3.3
+ passive-interface GigabitEthernet0/2
+ passive-interface Loopback0
  network 10.50.15.0 0.0.0.3 area 0
  network 10.50.15.4 0.0.0.3 area 0
  default-information originate
+exit
 
-! 6. Configuração de NAT/PAT (Tradução de Endereços)
-! Permite saída à Internet para toda a gama interna 10.50.0.0/20
+! 6. NAT / PAT Overload e Static NAT para o Servidor Web (Objetivo 4)
 access-list 100 permit ip 10.50.0.0 0.0.15.255 any
 ip nat inside source list 100 interface GigabitEthernet0/2 overload
 
-! Static NAT: Expor a porta 80 do Servidor Web Debian (10.50.0.250) para a WAN
-ip nat inside source static tcp 10.50.0.250 80 interface GigabitEthernet0/2 80
+! Static NAT: Redireciona porta 80 externa para o Servidor Debian (10.50.0.222)
+ip nat inside source static tcp 10.50.0.222 80 interface GigabitEthernet0/2 80
 
-! 7. ACL de Segurança L3/L4: Restrição da VLAN Guest (VLAN 10)
-! Bloqueia acesso à rede interna e permite apenas tráfego para a Internet
-ip access-list extended GUEST_RESTRICTIONS
- deny ip 10.50.0.128 0.0.0.63 10.50.0.0 0.0.15.255
- permit ip 10.50.0.128 0.0.0.63 any
+! 7. Isolamento de Gestão SSH/Telnet exclusivo para a VLAN 99 (Objetivo 5.1)
+ip domain-name org.local
+crypto key generate rsa general-keys modulus 1024
+username admin privilege 15 secret cisco123
+enable secret cisco123
+
+access-list 99 permit 10.50.0.224 0.0.0.15
+access-list 99 deny any log
+
+line vty 0 4
+ access-class 99 in
+ login local
+ transport input ssh telnet
 exit
 
-! Aplicar a ACL de entrada nas interfaces ligadas à distribuição
-interface GigabitEthernet0/0
- ip access-group GUEST_RESTRICTIONS in
-
-interface GigabitEthernet0/1
- ip access-group GUEST_RESTRICTIONS in
-
-! 8. Guardar na memória NVRAM
 end
 write memory (wr)
-
-
